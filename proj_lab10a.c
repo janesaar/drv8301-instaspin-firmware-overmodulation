@@ -137,6 +137,20 @@ _iq gTorque_Ls_Id_Iq_pu_to_Nm_sf;
 
 _iq gTorque_Flux_Iq_pu_to_Nm_sf;
 
+uint16_t boardId = '5';
+
+char buf[16];
+char returnBuf[32];
+int counter = 0;
+bool isCommandReceived = false;
+bool isCommandStart = false;
+
+bool isWaitingTxFifoEmpty = false;
+int txOffDelayCount = 2; // 1 count = 66.667us, 15 counts = 1ms
+int txOffDelayCounter = 0;
+bool isTxOffDelayActive = false;
+bool shouldSendSpeed = false;
+
 // **************************************************************************
 // the functions
 
@@ -275,6 +289,11 @@ void main(void) {
 	gTorque_Ls_Id_Iq_pu_to_Nm_sf = USER_computeTorque_Ls_Id_Iq_pu_to_Nm_sf();
 	gTorque_Flux_Iq_pu_to_Nm_sf = USER_computeTorque_Flux_Iq_pu_to_Nm_sf();
 
+	gMotorVars.Kp_spd = _IQ(4.0);
+	gMotorVars.MaxAccel_krpmps = _IQ(10.0);
+	gMotorVars.SpeedRef_krpm = _IQ(0.0);
+	gMotorVars.Flag_enableSys = true;
+
 	for (;;) {
 		// Waiting for enable system flag to be set
 		while (!(gMotorVars.Flag_enableSys))
@@ -285,6 +304,41 @@ void main(void) {
 
 		// loop while the enable system flag is true
 		while (gMotorVars.Flag_enableSys) {
+			if (counter == 8) {
+				isCommandReceived = false;
+
+				if (buf[1] == boardId && buf[2] == 's') {
+					long value = ((long)buf[3]) | ((long)buf[4] << 8) | ((long)buf[5] << 16) | ((long)buf[6] << 24);
+					bool isRunIdentify = true;
+
+					gMotorVars.SpeedRef_krpm = value;
+					gMotorVars.Flag_Run_Identify = isRunIdentify;
+				}
+
+				isCommandStart = false;
+				counter = 0;
+			}
+
+			if (shouldSendSpeed) {
+				shouldSendSpeed = false;
+
+				if (buf[1] == boardId && buf[2] == 's') {
+					returnBuf[0] = '<';
+					returnBuf[1] = boardId;
+					returnBuf[2] = 'd';
+
+					long returnValue = gMotorVars.Speed_krpm;
+
+					returnBuf[3] = returnValue;
+					returnBuf[4] = returnValue >> 8;
+					returnBuf[5] = returnValue >> 16;
+					returnBuf[6] = returnValue >> 24;
+					returnBuf[7] = '>';
+
+					serialWrite(returnBuf, 8);
+				}
+			}
+
 			CTRL_Obj *obj = (CTRL_Obj *) ctrlHandle;
 
 			// increment counters
@@ -400,7 +454,7 @@ void main(void) {
 				Flag_Latch_softwareUpdate = true;
 
 				// initialize the watch window kp and ki values with pre-calculated values
-				gMotorVars.Kp_spd = CTRL_getKp(ctrlHandle, CTRL_Type_PID_spd);
+				//gMotorVars.Kp_spd = CTRL_getKp(ctrlHandle, CTRL_Type_PID_spd);
 				gMotorVars.Ki_spd = CTRL_getKi(ctrlHandle, CTRL_Type_PID_spd);
 
 				// the estimator sets the maximum current slope during identification
@@ -495,11 +549,93 @@ interrupt void mainISR(void) {
 	// setup the controller
 	CTRL_setup(ctrlHandle);
 
+	if (isTxOffDelayActive) {
+	  if (++txOffDelayCounter == txOffDelayCount) {
+		  txOffDelayCounter = 0;
+		  isTxOffDelayActive = false;
+		  AIO_setLow(halHandle->gpioHandle,AIO_Number_6);
+	  }
+	}
+
+	if (isWaitingTxFifoEmpty && SCI_getRxFifoStatus(halHandle->sciAHandle) == SCI_FifoStatus_Empty) {
+		isWaitingTxFifoEmpty = 0;
+		isTxOffDelayActive = true;
+	}
+
 	return;
 } // end of mainISR() function
 
 interrupt void sciARxISR(void) {
+	HAL_Obj *obj = (HAL_Obj *)halHandle;
 
+	while (SCI_rxDataReady(obj->sciAHandle)) {
+		char c = SCI_read(obj->sciAHandle);
+
+		if (counter < 8) {
+			switch (counter) {
+			case 0:
+				if (c == '<') {
+					buf[counter] = c;
+					counter++;
+				} else {
+					counter = 0;
+				}
+				break;
+			case 1:
+				if (c == boardId) {
+					buf[counter] = c;
+					counter++;
+				} else {
+					counter = 0;
+				}
+				break;
+			case 2:
+				if (c == 's') {
+					buf[counter] = c;
+					counter++;
+					shouldSendSpeed = true;
+				} else {
+					counter = 0;
+				}
+				break;
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+				buf[counter] = c;
+				counter++;
+				break;
+			case 7:
+				if (c == '>') {
+					buf[counter] = c;
+					counter++;
+				} else {
+					counter = 0;
+				}
+				break;
+			default:
+				counter = 0;
+			}
+		}
+	}
+
+	// acknowledge interrupt from SCI group so that SCI interrupt is not received twice
+	PIE_clearInt(obj->pieHandle, PIE_GroupNumber_9);
+}
+
+void serialWrite(char *sendData, int length) {
+	int i = 0;
+
+	AIO_setHigh(halHandle->gpioHandle, AIO_Number_6);
+
+	while (i < length) {
+		if (SCI_txReady(halHandle->sciAHandle)) {
+			SCI_write(halHandle->sciAHandle, sendData[i]);
+			i++;
+		}
+	}
+
+	isWaitingTxFifoEmpty = true;
 }
 
 void updateGlobalVariables_motor(CTRL_Handle handle) {
