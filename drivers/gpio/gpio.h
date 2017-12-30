@@ -449,6 +449,9 @@ extern void GPIO_toggle(GPIO_Handle gpioHandle,const GPIO_Number_e gpioNumber);
 extern void GPIO_lpmSelect(GPIO_Handle gpioHandle,const GPIO_Number_e gpioNumber);
 
 
+extern void AIO_setDirection(GPIO_Handle gpioHandle,const AIO_Number_e aioNumber,const GPIO_Direction_e direction);
+
+
 extern void AIO_setLow(GPIO_Handle gpioHandle,const AIO_Number_e aioNumber);
 
 
