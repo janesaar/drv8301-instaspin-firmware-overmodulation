@@ -549,8 +549,8 @@ void HAL_enablePwmInt(HAL_Handle handle)
 
 void HAL_setupFaults(HAL_Handle handle)
 {
-  HAL_Obj *obj = (HAL_Obj *)handle;
-  uint_least8_t cnt;
+  //HAL_Obj *obj = (HAL_Obj *)handle;
+  //uint_least8_t cnt;
 
 
   // Configure Trip Mechanism for the Motor control software
