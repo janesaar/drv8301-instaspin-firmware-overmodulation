@@ -319,6 +319,7 @@ void main(void) {
 	gMotorVars.MaxAccel_krpmps = _IQ(10.0);
 	gMotorVars.SpeedRef_krpm = _IQ(0.0);
 	gMotorVars.Flag_enableSys = true;
+	gMotorVars.Flag_enableOffsetcalc = false;
 
 	for (;;) {
 		// Waiting for enable system flag to be set
