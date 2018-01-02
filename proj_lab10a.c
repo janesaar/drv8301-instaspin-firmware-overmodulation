@@ -44,6 +44,8 @@
 // system includes
 #include <math.h>
 #include "main.h"
+#include "modules/angle_gen/angle_gen.h"
+#include "modules/vs_freq/vs_freq.h"
 
 #ifdef FLASH
 #pragma CODE_SECTION(mainISR,"ramfuncs");
@@ -92,6 +94,7 @@ CTRL_Obj *controller_obj;
 #endif
 
 CTRL_Obj ctrl;				//v1p7 format
+CTRL_Obj *controller_obj;
 #endif
 
 uint16_t gLEDcnt = 0;
@@ -154,6 +157,16 @@ int txOffDelayCounter = 0;
 bool isTxOffDelayActive = false;
 bool shouldSendSpeed = false;
 
+bool isOpenLoop = false;
+
+// define Angle Generate
+ANGLE_GEN_Handle angle_genHandle;
+ANGLE_GEN_Obj    angle_gen;
+
+// define Vs per Freq
+VS_FREQ_Handle vs_freqHandle;
+VS_FREQ_Obj    vs_freq;
+
 // **************************************************************************
 // the functions
 
@@ -212,10 +225,11 @@ void main(void) {
 	// initialize the controller
 #ifdef FAST_ROM_V1p6
 	ctrlHandle = CTRL_initCtrl(ctrlNumber, estNumber); //v1p6 format (06xF and 06xM devices)
-	controller_obj = (CTRL_Obj *)ctrlHandle;
 #else
 	ctrlHandle = CTRL_initCtrl(estNumber, &ctrl, sizeof(ctrl));	//v1p7 format default
 #endif
+
+	controller_obj = (CTRL_Obj *)ctrlHandle;
 
 	{
 		CTRL_Version version;
@@ -228,6 +242,15 @@ void main(void) {
 
 	// set the default controller parameters
 	CTRL_setParams(ctrlHandle, &gUserParams);
+
+	// initialize the angle generate module
+	angle_genHandle = ANGLE_GEN_init(&angle_gen,sizeof(angle_gen));
+	ANGLE_GEN_setParams(angle_genHandle, gUserParams.iqFullScaleFreq_Hz, gUserParams.ctrlPeriod_sec);
+
+	// initialize the Vs per Freq module
+	vs_freqHandle = VS_FREQ_init(&vs_freq,sizeof(vs_freq));
+	VS_FREQ_setParams(vs_freqHandle,  gUserParams.iqFullScaleFreq_Hz, gUserParams.iqFullScaleVoltage_V, gUserParams.maxVsMag_pu);
+	VS_FREQ_setProfile(vs_freqHandle, USER_MOTOR_FREQ_LOW, USER_MOTOR_FREQ_HIGH, USER_MOTOR_VOLT_MIN, USER_MOTOR_VOLT_MAX);
 
 	// Initialize and setup the 100% SVM generator
 	svgencurrentHandle = SVGENCURRENT_init(&svgencurrent, sizeof(svgencurrent));
@@ -299,8 +322,7 @@ void main(void) {
 
 	for (;;) {
 		// Waiting for enable system flag to be set
-		while (!(gMotorVars.Flag_enableSys))
-			;
+		while (!(gMotorVars.Flag_enableSys));
 
 		// Enable the Library internal PI.  Iq is referenced by the speed PI now
 		CTRL_setFlag_enableSpeedCtrl(ctrlHandle, true);
@@ -313,6 +335,14 @@ void main(void) {
 				if (buf[1] == boardId && buf[2] == 's') {
 					long value = ((long)buf[3]) | ((long)buf[4] << 8) | ((long)buf[5] << 16) | ((long)buf[6] << 24);
 					bool isRunIdentify = true;
+
+					if (value == _IQ(0.0)) {
+						isRunIdentify = 0;
+					} else if (_IQabs(value) <= _IQ(0.2)) {
+						isOpenLoop = true;
+					} else {
+						isOpenLoop = false;
+					}
 
 					gMotorVars.SpeedRef_krpm = value;
 					gMotorVars.Flag_Run_Identify = isRunIdentify;
@@ -379,6 +409,20 @@ void main(void) {
 
 				// enable or disable the control
 				CTRL_setFlag_enableCtrl(ctrlHandle, gMotorVars.Flag_Run_Identify);
+
+				if (isOpenLoop) {
+					// set flag to disable speed controller
+					CTRL_setFlag_enableSpeedCtrl(ctrlHandle, false);
+
+					// set flag to disable current controller
+					CTRL_setFlag_enableCurrentCtrl(ctrlHandle, false);
+				} else {
+					// set flag to disable speed controller
+					CTRL_setFlag_enableSpeedCtrl(ctrlHandle, true);
+
+					// set flag to disable current controller
+					CTRL_setFlag_enableCurrentCtrl(ctrlHandle, true);
+				}
 
 				if (flag_ctrlStateChanged) {
 					CTRL_State_e ctrlState = CTRL_getState(ctrlHandle);
@@ -541,41 +585,234 @@ void main(void) {
 interrupt void mainISR(void) {
 	SVGENCURRENT_MeasureShunt_e measurableShuntThisCycle = SVGENCURRENT_getMode(svgencurrentHandle);
 
-	// toggle status LED
-	if (++gLEDcnt >= (uint_least32_t) (USER_ISR_FREQ_Hz / LED_BLINK_FREQ_Hz)) {
-		HAL_toggleLed(halHandle, (GPIO_Number_e) HAL_Gpio_LED2);
-		gLEDcnt = 0;
-	}
-
 	// acknowledge the ADC interrupt
 	HAL_acqAdcInt(halHandle, ADC_IntNumber_1);
 
 	// convert the ADC data
 	HAL_readAdcData(halHandle, &gAdcData);
 
-	// run the current reconstruction algorithm
-	SVGENCURRENT_RunRegenCurrent(svgencurrentHandle, (MATH_vec3 *) (gAdcData.I.value));
+	if (!isOpenLoop) {
+		// run the current reconstruction algorithm
+		SVGENCURRENT_RunRegenCurrent(svgencurrentHandle, (MATH_vec3 *) (gAdcData.I.value));
 
-	gIavg.value[0] += (gAdcData.I.value[0] - gIavg.value[0]) >> gIavg_shift;
-	gIavg.value[1] += (gAdcData.I.value[1] - gIavg.value[1]) >> gIavg_shift;
-	gIavg.value[2] += (gAdcData.I.value[2] - gIavg.value[2]) >> gIavg_shift;
+		gIavg.value[0] += (gAdcData.I.value[0] - gIavg.value[0]) >> gIavg_shift;
+		gIavg.value[1] += (gAdcData.I.value[1] - gIavg.value[1]) >> gIavg_shift;
+		gIavg.value[2] += (gAdcData.I.value[2] - gIavg.value[2]) >> gIavg_shift;
 
-	if (measurableShuntThisCycle > two_phase_measurable) {
-		gAdcData.I.value[0] = gIavg.value[0];
-		gAdcData.I.value[1] = gIavg.value[1];
-		gAdcData.I.value[2] = gIavg.value[2];
+		if (measurableShuntThisCycle > two_phase_measurable) {
+			gAdcData.I.value[0] = gIavg.value[0];
+			gAdcData.I.value[1] = gIavg.value[1];
+			gAdcData.I.value[2] = gIavg.value[2];
+		}
 	}
 
-	// run the controller
-	CTRL_run(ctrlHandle, halHandle, &gAdcData, &gPwmData);
+	uint_least16_t count_isr = CTRL_getCount_isr(ctrlHandle);
+	uint_least16_t numIsrTicksPerCtrlTick = CTRL_getNumIsrTicksPerCtrlTick(ctrlHandle);
 
-	// run the PWM compensation and current ignore algorithm
-	SVGENCURRENT_compPwmData(svgencurrentHandle, &(gPwmData.Tabc), &gPwmData_prev);
+	// if needed, run the controller
+	if (count_isr >= numIsrTicksPerCtrlTick) {
+		CTRL_State_e ctrlState = CTRL_getState(ctrlHandle);
+
+		// reset the isr count
+		CTRL_resetCounter_isr(ctrlHandle);
+
+		// increment the state counter
+		CTRL_incrCounter_state(ctrlHandle);
+
+		// increment the trajectory count
+		CTRL_incrCounter_traj(ctrlHandle);
+
+		// run the appropriate controller
+		if (ctrlState == CTRL_State_OnLine) {
+			// increment the current count
+			CTRL_incrCounter_current(ctrlHandle);
+
+			// increment the speed count
+			CTRL_incrCounter_speed(ctrlHandle);
+
+			_iq angle_pu;
+
+			MATH_vec2 phasor;
+
+			// run Clarke transform on current
+			CLARKE_run(controller_obj->clarkeHandle_I, &gAdcData.I, CTRL_getIab_in_addr(ctrlHandle));
+
+			// run Clarke transform on voltage
+			CLARKE_run(controller_obj->clarkeHandle_V, &gAdcData.V, CTRL_getVab_in_addr(ctrlHandle));
+
+			if (isOpenLoop) {
+				controller_obj->speed_ref_pu = TRAJ_getIntValue(controller_obj->trajHandle_spd);
+
+				ANGLE_GEN_run(angle_genHandle, controller_obj->speed_ref_pu);
+				VS_FREQ_run(vs_freqHandle, controller_obj->speed_ref_pu);
+
+				// generate the motor electrical angle
+				controller_obj->angle_pu = ANGLE_GEN_getAngle_pu(angle_genHandle);
+				angle_pu = controller_obj->angle_pu;
+
+				controller_obj->Vdq_out.value[0] = vs_freq.Vdq_out.value[0];
+				controller_obj->Vdq_out.value[1] = vs_freq.Vdq_out.value[1];
+			} else {
+				// run the estimator
+				EST_run(controller_obj->estHandle, CTRL_getIab_in_addr(ctrlHandle), CTRL_getVab_in_addr(ctrlHandle),
+						gAdcData.dcBus, TRAJ_getIntValue(controller_obj->trajHandle_spd));
+
+				// generate the motor electrical angle
+				angle_pu = EST_getAngle_pu(controller_obj->estHandle);
+			}
+
+			// compute the sin/cos phasor
+			CTRL_computePhasor(angle_pu, &phasor);
+
+			// set the phasor in the Park transform
+			PARK_setPhasor(controller_obj->parkHandle, &phasor);
+
+			// run the Park transform
+			PARK_run(controller_obj->parkHandle, CTRL_getIab_in_addr(ctrlHandle), CTRL_getIdq_in_addr(ctrlHandle));
+
+			if (!isOpenLoop) {
+				// when appropriate, run the PID speed controller
+				if (EST_doSpeedCtrl(controller_obj->estHandle)) {
+					if (CTRL_doSpeedCtrl(ctrlHandle)) {
+						_iq refValue = TRAJ_getIntValue(controller_obj->trajHandle_spd);
+						_iq fbackValue = EST_getFm_pu(controller_obj->estHandle);
+						_iq outMax = TRAJ_getIntValue(controller_obj->trajHandle_spdMax);
+						_iq outMin = -outMax;
+
+						// reset the speed count
+						CTRL_resetCounter_speed(ctrlHandle);
+
+						PID_setMinMax(controller_obj->pidHandle_spd, outMin, outMax);
+
+						PID_run_spd(controller_obj->pidHandle_spd, refValue, fbackValue, CTRL_getSpd_out_addr(ctrlHandle));
+					}
+				} else {
+					// zero the speed command
+					CTRL_setSpd_out_pu(ctrlHandle, _IQ(0.0));
+
+					// reset the integrator
+					PID_setUi(controller_obj->pidHandle_spd, _IQ(0.0));
+				}
+
+				// when appropriate, run the PID Id and Iq controllers
+				if (CTRL_doCurrentCtrl(ctrlHandle) && EST_doCurrentCtrl(controller_obj->estHandle)) {
+					_iq Kp_Id = CTRL_getKp(ctrlHandle, CTRL_Type_PID_Id);
+					_iq Kp_Iq = CTRL_getKp(ctrlHandle, CTRL_Type_PID_Iq);
+					_iq refValue;
+					_iq fbackValue;
+					_iq outMin, outMax;
+
+					_iq maxVsMag = CTRL_getMaxVsMag_pu(ctrlHandle);
+
+					// reset the current count
+					CTRL_resetCounter_current(ctrlHandle);
+
+					// ***********************************
+					// configure and run the Id controller
+
+					// compute the Kp gain
+					// Scale Kp instead of output to prevent saturation issues
+					if (CTRL_getFlag_enableDcBusComp(ctrlHandle)) {
+						Kp_Id = _IQmpy(Kp_Id, EST_getOneOverDcBus_pu(controller_obj->estHandle));
+					}
+
+					PID_setKp(controller_obj->pidHandle_Id, Kp_Id);
+
+					// compute the reference value
+					refValue = TRAJ_getIntValue(controller_obj->trajHandle_Id) + CTRL_getId_ref_pu(ctrlHandle);
+
+					// update the Id reference value
+					EST_updateId_ref_pu(controller_obj->estHandle, &refValue);
+
+					// get the feedback value
+					fbackValue = CTRL_getId_in_pu(ctrlHandle);
+
+					// set minimum and maximum for Id controller output
+					outMax = maxVsMag;
+					outMin = -outMax;
+
+					// set the minimum and maximum values
+					PID_setMinMax(controller_obj->pidHandle_Id, outMin, outMax);
+
+					// run the Id PID controller
+					PID_run(controller_obj->pidHandle_Id, refValue, fbackValue, CTRL_getVd_out_addr(ctrlHandle));
+
+					// set the Id reference value in the estimator
+					EST_setId_ref_pu(controller_obj->estHandle, refValue);
+
+					// ***********************************
+					// configure and run the Iq controller
+
+					// compute the Kp gain
+					// Scale Kp instead of output to prevent saturation issues
+					if (CTRL_getFlag_enableDcBusComp(ctrlHandle)) {
+						Kp_Iq = _IQmpy(Kp_Iq, EST_getOneOverDcBus_pu(controller_obj->estHandle));
+					}
+
+					PID_setKp(controller_obj->pidHandle_Iq, Kp_Iq);
+
+					// get the reference value
+					if (CTRL_getFlag_enableSpeedCtrl(ctrlHandle)) {
+						if (!CTRL_useZeroIq_ref(ctrlHandle)) {
+							refValue = CTRL_getSpd_out_pu(ctrlHandle);
+						} else {
+							refValue = _IQ(0.0);
+						}
+					} else {
+						// get the Iq reference value
+						refValue = CTRL_getIq_ref_pu(ctrlHandle);
+					}
+
+					// get the feedback value
+					fbackValue = CTRL_getIq_in_pu(ctrlHandle);
+
+					// generate the Iq PID output limits without square root
+					outMax = maxVsMag - _IQabs(CTRL_getVd_out_pu(ctrlHandle));
+					outMin = -outMax;
+
+					// set the minimum and maximum values
+					PID_setMinMax(controller_obj->pidHandle_Iq, outMin, outMax);
+
+					// run the Iq PID controller
+					PID_run(controller_obj->pidHandle_Iq, refValue, fbackValue, CTRL_getVq_out_addr(ctrlHandle));
+
+					// set the Iq reference value in the estimator
+					EST_setIq_ref_pu(controller_obj->estHandle, refValue);
+				}
+
+			}
+
+			// set the phasor in the inverse Park transform
+			IPARK_setPhasor(controller_obj->iparkHandle, &phasor);
+
+			// run the inverse Park module
+			IPARK_run(controller_obj->iparkHandle, CTRL_getVdq_out_addr(ctrlHandle), CTRL_getVab_out_addr(ctrlHandle));
+
+			// run the space Vector Generator (SVGEN) module
+			SVGEN_run(controller_obj->svgenHandle, CTRL_getVab_out_addr(ctrlHandle), &(gPwmData.Tabc));
+
+		} else if (ctrlState == CTRL_State_OffLine) {
+			// run the offline controller
+			CTRL_runOffLine(ctrlHandle, halHandle, &gAdcData, &gPwmData);
+		} else if (ctrlState == CTRL_State_Idle) {
+			// set all pwm outputs to zero
+			gPwmData.Tabc.value[0] = _IQ(0.0);
+			gPwmData.Tabc.value[1] = _IQ(0.0);
+			gPwmData.Tabc.value[2] = _IQ(0.0);
+		}
+	} else {
+		// increment the isr count
+		CTRL_incrCounter_isr(ctrlHandle);
+	}
+
+	if (!isOpenLoop) {
+		SVGENCURRENT_compPwmData(svgencurrentHandle, &(gPwmData.Tabc), &gPwmData_prev);
+	}
 
 	// write the PWM compare values
 	HAL_writePwmData(halHandle, &gPwmData);
 
-	{
+	if (!isOpenLoop) {
 		SVGENCURRENT_IgnoreShunt_e ignoreShuntNextCycle = SVGENCURRENT_getIgnoreShunt(svgencurrentHandle);
 		SVGENCURRENT_VmidShunt_e midVolShunt = SVGENCURRENT_getVmid(svgencurrentHandle);
 
