@@ -139,6 +139,9 @@ _iq gTorque_Flux_Iq_pu_to_Nm_sf;
 
 uint16_t boardId = '5';
 
+volatile bool isVoltageTooLow = true;
+_iq lowVoltageThreshold = _IQ(0.01);
+
 char buf[16];
 char returnBuf[32];
 int counter = 0;
@@ -362,6 +365,14 @@ void main(void) {
 
 				// disable the PWM
 				HAL_disablePwm(halHandle);
+			} else if (isVoltageTooLow) {
+				// set the enable controller flag to false
+				CTRL_setFlag_enableCtrl(ctrlHandle, false);
+
+				// disable the PWM
+				HAL_disablePwm(halHandle);
+
+				gMotorVars.Flag_Run_Identify = false;
 			} else {
 				// update the controller state
 				bool flag_ctrlStateChanged = CTRL_updateState(ctrlHandle);
@@ -467,6 +478,32 @@ void main(void) {
 				gCounter_updateGlobals = 0;
 
 				updateGlobalVariables_motor(ctrlHandle);
+
+				if (isVoltageTooLow && gMotorVars.VdcBus_kV > lowVoltageThreshold) {
+					isVoltageTooLow = false;
+
+					// Power restored, reset to start with fresh parameters
+					// disable the PWM
+					HAL_disablePwm(halHandle);
+
+					// set the default controller parameters (Reset the control to re-identify the motor)
+					CTRL_setParams(ctrlHandle, &gUserParams);
+					gMotorVars.Flag_Run_Identify = false;
+				} else if (!isVoltageTooLow && gMotorVars.VdcBus_kV < lowVoltageThreshold) {
+					isVoltageTooLow = true;
+
+					// Power lost, disable control
+					if (gMotorVars.Flag_Run_Identify) {
+						// disable the PWM
+						HAL_disablePwm(halHandle);
+
+						CTRL_setFlag_enableCtrl(ctrlHandle, false);
+
+						// set the default controller parameters (Reset the control to re-identify the motor)
+						CTRL_setParams(ctrlHandle, &gUserParams);
+						gMotorVars.Flag_Run_Identify = false;
+					}
+				}
 			}
 
 			// update Kp and Ki gains
