@@ -45,4 +45,5 @@ expAdd ("svgencurrent.MinWidth", getDecimal());
 expAdd ("svgencurrent.IgnoreShunt");
 
 expAdd ("gDrvSpi8301Vars");
-expAdd ("gDrvSpi8305Vars");
+
+expAdd ("isOpenLoop");

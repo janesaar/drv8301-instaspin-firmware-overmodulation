@@ -99,12 +99,12 @@ extern "C" {
 //! \brief Defines the full scale current for the IQ variables, A
 //! \brief All currents are converted into (pu) based on the ratio to this value
 //! \brief WARNING: this value MUST be larger than the maximum current readings that you are expecting from the motor or the reading will roll over to 0, creating a control issue 
-#define USER_IQ_FULL_SCALE_CURRENT_A         (20.0) // 20.0 Example for boostxldrv8301_revB typical usage
+#define USER_IQ_FULL_SCALE_CURRENT_A         (33.0) // 20.0 Example for boostxldrv8301_revB typical usage
 
 //! \brief Defines the maximum current at the AD converter
 //! \brief The value that will be represented by the maximum ADC input (3.3V) and conversion (0FFFh)
 //! \brief Hardware dependent, this should be based on the current sensing and scaling to the ADC input
-#define USER_ADC_FULL_SCALE_CURRENT_A        (33.0)  // 33.0 boostxldrv8301_revB current scaling
+#define USER_ADC_FULL_SCALE_CURRENT_A        (66.0)  // 33.0 boostxldrv8301_revB current scaling
 
 //! \brief Defines the current scale factor for the system
 //! \brief Compile time calculation for scale factor (ratio) used throughout the system
@@ -119,6 +119,13 @@ extern "C" {
 //! \brief Must be (3)
 #define USER_NUM_VOLTAGE_SENSORS            (3) // 3 Required
 
+#define shunt_10m	1
+#define shunt_5m	2
+
+//#define USER_SHUNT	shunt_10m
+#define USER_SHUNT	shunt_5m
+
+#if (USER_SHUNT == shunt_10m)
 //! \brief ADC current offsets for A, B, and C phases
 //! \brief One-time hardware dependent, though the calibration can be done at run-time as well
 //! \brief After initial board calibration these values should be updated for your specific hardware so they are available after compile in the binary to be loaded to the controller
@@ -132,6 +139,19 @@ extern "C" {
 #define   V_A_offset    (0.3292495012)
 #define   V_B_offset    (0.3279079795)
 #define   V_C_offset    (0.3281784654)
+
+#elif (USER_SHUNT == shunt_5m)
+#define   I_A_offset    (0.9971886873)
+#define   I_B_offset    (1.005729437)
+#define   I_C_offset    (0.9905563593)
+
+#define   V_A_offset    (0.3350604177)
+#define   V_B_offset    (0.3336926699)
+#define   V_C_offset    (0.3340013623)
+
+#else
+#error No shunt type specified
+#endif
 
 
 //! \brief CLOCKS & TIMERS
@@ -334,18 +354,41 @@ extern "C" {
 
 //! \brief Define each motor with a unique name and ID number
 // BLDC & SMPM motors
-#define propdrive_28_26_1100kv      119
-#define propdrive_v2_2836_1200kv    120
+#define propdrive_28_36_750kv					118
+#define propdrive_28_26_1100kv      			119
+#define propdrive_v2_2836_1200kv_shunt_10m		120
+#define propdrive_v2_2836_1200kv_shunt_5m		121
 
 
 //! \brief Uncomment the motor which should be included at compile
 //! \brief These motor ID settings and motor parameters are then available to be used by the control system
 //! \brief Once your ideal settings and parameters are identified update the motor section here so it is available in the binary code
+//#define USER_MOTOR propdrive_28_36_750kv
 //#define USER_MOTOR propdrive_28_26_1100kv
-#define USER_MOTOR propdrive_v2_2836_1200kv
+//#define USER_MOTOR propdrive_v2_2836_1200kv_shunt_10m
+#define USER_MOTOR propdrive_v2_2836_1200kv_shunt_5m
+
+#if (USER_MOTOR == propdrive_28_36_750kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (3)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.138000131)
+#define USER_MOTOR_Ls_d                 (1.76805534e-05)
+#define USER_MOTOR_Ls_q                 (1.76805534e-05)
+#define USER_MOTOR_RATED_FLUX           (0.0170864556)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (30.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (30.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
 
 
-#if (USER_MOTOR == propdrive_28_26_1100kv)
+#elif (USER_MOTOR == propdrive_28_26_1100kv)
 #define USER_MOTOR_TYPE                 MOTOR_Type_Pm
 #define USER_MOTOR_NUM_POLE_PAIRS       (6)
 #define USER_MOTOR_Rr                   (NULL)
@@ -358,10 +401,14 @@ extern "C" {
 #define USER_MOTOR_IND_EST_CURRENT      (-2.0)
 #define USER_MOTOR_MAX_CURRENT          (10.0)
 #define USER_MOTOR_FLUX_EST_FREQ_Hz     (200.0)
-#define USER_IQ_FULL_SCALE_FREQ_Hz      (1300.0)
+//shunt_5m
+//0.0825454965
+//1.63018431e-05
+//1.63018431e-05
+//0.00559047097
 
 
-#elif (USER_MOTOR == propdrive_v2_2836_1200kv)
+#elif (USER_MOTOR == propdrive_v2_2836_1200kv_shunt_10m)
 #define USER_MOTOR_TYPE                 MOTOR_Type_Pm
 #define USER_MOTOR_NUM_POLE_PAIRS       (6)
 #define USER_MOTOR_Rr                   (NULL)
@@ -374,13 +421,31 @@ extern "C" {
 #define USER_MOTOR_IND_EST_CURRENT      (-4.0)
 #define USER_MOTOR_MAX_CURRENT          (15.0)
 #define USER_MOTOR_FLUX_EST_FREQ_Hz     (100.0)
-#define USER_IQ_FULL_SCALE_FREQ_Hz      (1300.0)
 #define USER_MOTOR_FREQ_LOW             (1.0)
 #define USER_MOTOR_FREQ_HIGH            (100.0)
 #define USER_MOTOR_FREQ_MAX             (120.0)
 #define USER_MOTOR_VOLT_MIN             (1.5)
 #define USER_MOTOR_VOLT_MAX             (10.0)
 
+
+#elif (USER_MOTOR == propdrive_v2_2836_1200kv_shunt_5m)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0475725718)
+#define USER_MOTOR_Ls_d                 (7.08131893e-06)
+#define USER_MOTOR_Ls_q                 (7.08131893e-06)
+#define USER_MOTOR_RATED_FLUX           (0.00533810304)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (30.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (100.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (1.5)
+#define USER_MOTOR_VOLT_MAX             (10.0)
 
 #else
 #error No motor type specified
