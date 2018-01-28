@@ -99,12 +99,12 @@ extern "C" {
 //! \brief Defines the full scale current for the IQ variables, A
 //! \brief All currents are converted into (pu) based on the ratio to this value
 //! \brief WARNING: this value MUST be larger than the maximum current readings that you are expecting from the motor or the reading will roll over to 0, creating a control issue 
-#define USER_IQ_FULL_SCALE_CURRENT_A         (33.0) // 20.0 Example for boostxldrv8301_revB typical usage
+#define USER_IQ_FULL_SCALE_CURRENT_A         (20.0) // 20.0 Example for boostxldrv8301_revB typical usage
 
 //! \brief Defines the maximum current at the AD converter
 //! \brief The value that will be represented by the maximum ADC input (3.3V) and conversion (0FFFh)
 //! \brief Hardware dependent, this should be based on the current sensing and scaling to the ADC input
-#define USER_ADC_FULL_SCALE_CURRENT_A        (66.0)  // 33.0 boostxldrv8301_revB current scaling
+#define USER_ADC_FULL_SCALE_CURRENT_A        (33.0)  // 33.0 boostxldrv8301_revB current scaling
 
 //! \brief Defines the current scale factor for the system
 //! \brief Compile time calculation for scale factor (ratio) used throughout the system
@@ -122,8 +122,8 @@ extern "C" {
 #define shunt_10m	1
 #define shunt_5m	2
 
-//#define USER_SHUNT	shunt_10m
-#define USER_SHUNT	shunt_5m
+#define USER_SHUNT	shunt_10m
+//#define USER_SHUNT	shunt_5m
 
 #if (USER_SHUNT == shunt_10m)
 //! \brief ADC current offsets for A, B, and C phases
@@ -359,14 +359,39 @@ extern "C" {
 #define propdrive_v2_2836_1200kv_shunt_10m		120
 #define propdrive_v2_2836_1200kv_shunt_5m		121
 
+#define propdrive_v2_2826_1000kv				122
+#define propdrive_v2_2826_1100kv				123
+#define propdrive_v2_2826_1200kv				124
+#define propdrive_v2_2826_1350kv				125
+
+#define propdrive_v2_2830_800kv					126
+#define propdrive_v2_2830_1000kv				127
+#define propdrive_v2_2830_1100kv				128
+#define propdrive_v2_2830_1200kv				129
+
+#define propdrive_v2_2836_1400kv				130
+#define propdrive_v2_2836_1800kv				131
 
 //! \brief Uncomment the motor which should be included at compile
 //! \brief These motor ID settings and motor parameters are then available to be used by the control system
 //! \brief Once your ideal settings and parameters are identified update the motor section here so it is available in the binary code
 //#define USER_MOTOR propdrive_28_36_750kv
 //#define USER_MOTOR propdrive_28_26_1100kv
+//#define USER_MOTOR propdrive_v2_2836_1200kv_shunt_5m
+
+//#define USER_MOTOR propdrive_v2_2826_1000kv
+//#define USER_MOTOR propdrive_v2_2826_1100kv
+//#define USER_MOTOR propdrive_v2_2826_1200kv
+//#define USER_MOTOR propdrive_v2_2826_1350kv
+
+//#define USER_MOTOR propdrive_v2_2830_800kv
+//#define USER_MOTOR propdrive_v2_2830_1000kv
+//#define USER_MOTOR propdrive_v2_2830_1100kv
+//#define USER_MOTOR propdrive_v2_2830_1200kv
+
 //#define USER_MOTOR propdrive_v2_2836_1200kv_shunt_10m
-#define USER_MOTOR propdrive_v2_2836_1200kv_shunt_5m
+#define USER_MOTOR propdrive_v2_2836_1400kv
+//#define USER_MOTOR propdrive_v2_2836_1800kv
 
 #if (USER_MOTOR == propdrive_28_36_750kv)
 #define USER_MOTOR_TYPE                 MOTOR_Type_Pm
@@ -387,7 +412,6 @@ extern "C" {
 #define USER_MOTOR_VOLT_MIN             (2.0)
 #define USER_MOTOR_VOLT_MAX             (14.0)
 
-
 #elif (USER_MOTOR == propdrive_28_26_1100kv)
 #define USER_MOTOR_TYPE                 MOTOR_Type_Pm
 #define USER_MOTOR_NUM_POLE_PAIRS       (6)
@@ -406,7 +430,6 @@ extern "C" {
 //1.63018431e-05
 //1.63018431e-05
 //0.00559047097
-
 
 #elif (USER_MOTOR == propdrive_v2_2836_1200kv_shunt_10m)
 #define USER_MOTOR_TYPE                 MOTOR_Type_Pm
@@ -427,7 +450,6 @@ extern "C" {
 #define USER_MOTOR_VOLT_MIN             (1.5)
 #define USER_MOTOR_VOLT_MAX             (10.0)
 
-
 #elif (USER_MOTOR == propdrive_v2_2836_1200kv_shunt_5m)
 #define USER_MOTOR_TYPE                 MOTOR_Type_Pm
 #define USER_MOTOR_NUM_POLE_PAIRS       (6)
@@ -446,6 +468,197 @@ extern "C" {
 #define USER_MOTOR_FREQ_MAX             (120.0)
 #define USER_MOTOR_VOLT_MIN             (1.5)
 #define USER_MOTOR_VOLT_MAX             (10.0)
+
+#elif (USER_MOTOR == propdrive_v2_2826_1000kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0958801433)
+#define USER_MOTOR_Ls_d                 (1.84556357e-05)
+#define USER_MOTOR_Ls_q                 (1.84556357e-05)
+#define USER_MOTOR_RATED_FLUX           (0.00622790866)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2826_1100kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0822150037)
+#define USER_MOTOR_Ls_d                 (1.58286184e-05)
+#define USER_MOTOR_Ls_q                 (1.58286184e-05)
+#define USER_MOTOR_RATED_FLUX           (0.00594277494)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2826_1200kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0762450173)
+#define USER_MOTOR_Ls_d                 (1.26282202e-05)
+#define USER_MOTOR_Ls_q                 (1.26282202e-05)
+#define USER_MOTOR_RATED_FLUX           (0.00533632981)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2826_1350kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0643800348)
+#define USER_MOTOR_Ls_d                 (9.73230817e-06)
+#define USER_MOTOR_Ls_q                 (9.73230817e-06)
+#define USER_MOTOR_RATED_FLUX           (0.00474516023)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2830_800kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0974551365)
+#define USER_MOTOR_Ls_d                 (1.79105627e-05)
+#define USER_MOTOR_Ls_q                 (1.79105627e-05)
+#define USER_MOTOR_RATED_FLUX           (0.0076340721)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2830_1000kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0730875283)
+#define USER_MOTOR_Ls_d                 (1.35701112e-05)
+#define USER_MOTOR_Ls_q                 (1.35701112e-05)
+#define USER_MOTOR_RATED_FLUX           (0.00618297141)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2830_1100kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0613875426)
+#define USER_MOTOR_Ls_d                 (1.07931628e-05)
+#define USER_MOTOR_Ls_q                 (1.07931628e-05)
+#define USER_MOTOR_RATED_FLUX           (0.0057579875)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2830_1200kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0530775599)
+#define USER_MOTOR_Ls_d                 (9.86133637e-06)
+#define USER_MOTOR_Ls_q                 (9.86133637e-06)
+#define USER_MOTOR_RATED_FLUX           (0.00524736149)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2836_1400kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0381487571)
+#define USER_MOTOR_Ls_d                 (5.41028567e-06)
+#define USER_MOTOR_Ls_q                 (5.41028567e-06)
+#define USER_MOTOR_RATED_FLUX           (0.00467979768)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
+#elif (USER_MOTOR == propdrive_v2_2836_1800kv)
+#define USER_MOTOR_TYPE                 MOTOR_Type_Pm
+#define USER_MOTOR_NUM_POLE_PAIRS       (6)
+#define USER_MOTOR_Rr                   (NULL)
+#define USER_MOTOR_Rs                   (0.0276487786)
+#define USER_MOTOR_Ls_d                 (3.25822339e-06)
+#define USER_MOTOR_Ls_q                 (3.25822339e-06)
+#define USER_MOTOR_RATED_FLUX           (0.00352712697)
+#define USER_MOTOR_MAGNETIZING_CURRENT  (NULL)
+#define USER_MOTOR_RES_EST_CURRENT      (4.0)
+#define USER_MOTOR_IND_EST_CURRENT      (-4.0)
+#define USER_MOTOR_MAX_CURRENT          (15.0)
+#define USER_MOTOR_FLUX_EST_FREQ_Hz     (50.0)
+#define USER_MOTOR_FREQ_LOW             (1.0)
+#define USER_MOTOR_FREQ_HIGH            (100.0)
+#define USER_MOTOR_FREQ_MAX             (120.0)
+#define USER_MOTOR_VOLT_MIN             (2.0)
+#define USER_MOTOR_VOLT_MAX             (14.0)
+
 
 #else
 #error No motor type specified
